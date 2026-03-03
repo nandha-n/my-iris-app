@@ -51,3 +51,47 @@ def predict():
 
 if __name__ == "__main__":
     app.run(debug=True)
+    import plotly.express as px
+import plotly.io as pio
+import pandas as pd
+from sklearn.datasets import load_iris
+
+# ... (your existing model loading code) ...
+
+# Load the dataset for the background chart
+iris = load_iris()
+df = pd.DataFrame(iris.data, columns=iris.feature_names)
+df['species'] = [iris.target_names[i] for i in iris.target]
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        # Get user inputs
+        f1 = float(request.form['sepal_length'])
+        f2 = float(request.form['sepal_width'])
+        f3 = float(request.form['petal_length'])
+        f4 = float(request.form['petal_width'])
+        
+        features = np.array([[f1, f2, f3, f4]])
+        prediction = model.predict(features)
+        species_names = ['Setosa', 'Versicolor', 'Virginica']
+        output = species_names[prediction[0]]
+
+        # --- CREATE THE CHART ---
+        fig = px.scatter(df, x="petal length (cm)", y="petal width (cm)", 
+                         color="species", title="Your Input vs. Iris Dataset",
+                         labels={"petal length (cm)": "Petal Length", "petal width (cm)": "Petal Width"})
+        
+        # Add the user's point as a big Red X
+        fig.add_scatter(x=[f3], y=[f4], name="Your Input", 
+                        marker=dict(color='red', size=15, symbol='x'))
+
+        # Convert plot to HTML string
+        graph_html = pio.to_html(fig, full_html=False)
+
+        return render_template('index.html', 
+                               prediction_text=f'Predicted: {output}', 
+                               plot=graph_html)
+    except Exception as e:
+        return f"Error: {e}"
+
