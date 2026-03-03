@@ -1,20 +1,18 @@
 from flask import Flask, render_template, request
 import joblib
 import numpy as np
+import os
 
 app = Flask(__name__)
 
-# Load the model you saved earlier
-# Ensure the file 'knn_model.joblib' is in this same folder!
-import os
-
-# Get the directory where app.py is located
+# Setup paths
 base_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(base_dir, 'knn_model.joblib')
+# scaler_path = os.path.join(base_dir, 'scaler.joblib') # Uncomment if you used a scaler
 
-# Load the model using the absolute path
+# Load model
 model = joblib.load(model_path)
-
+# scaler = joblib.load(scaler_path) # Uncomment if you used a scaler
 
 @app.route('/')
 def home():
@@ -23,19 +21,32 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Collect data from the HTML form
-        features = [float(x) for x in request.form.values()]
-        final_features = [np.array(features)]
+        # 1. Collect data explicitly by name to prevent ordering issues
+        # These names must match the 'name' attribute in your HTML <input> tags
+        input_data = [
+            float(request.form['sepal_length']),
+            float(request.form['sepal_width']),
+            float(request.form['petal_length']),
+            float(request.form['petal_width'])
+        ]
         
-        # Make prediction
+        # 2. Reshape for Scikit-Learn (expects 2D array)
+        final_features = np.array(input_data).reshape(1, -1)
+        
+        # 3. Apply Scaling (CRITICAL: Only if you scaled during training!)
+        # final_features = scaler.transform(final_features)
+        
+        # 4. Make prediction
         prediction = model.predict(final_features)
         
-        # Map numeric result (0, 1, 2) to class name
+        # 5. Map numeric result to class name
         species_names = ['Setosa', 'Versicolor', 'Virginica']
         output = species_names[prediction[0]]
 
-        return render_template('index.html', prediction_text=f'Predicted Species: {output}')
+        return render_template('index.html', prediction_text=f'Result: {output}')
+
     except Exception as e:
+        # Useful for debugging; in production, you might want a cleaner message
         return render_template('index.html', prediction_text=f'Error: {str(e)}')
 
 if __name__ == "__main__":
